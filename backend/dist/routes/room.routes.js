@@ -12,4 +12,7 @@ const roomController = new room_controller_1.default();
 router.post('/create', auth_middleware_1.authGuard, room_middleware_1.validRoomName, (req, res) => {
     roomController.createRoom(req, res);
 });
+router.post('/join', auth_middleware_1.authGuard, (req, res) => {
+    roomController.joinRoom(req, res);
+});
 exports.default = router;

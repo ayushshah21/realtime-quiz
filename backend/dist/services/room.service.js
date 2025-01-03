@@ -10,12 +10,31 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createRoom = createRoom;
+exports.validRoomCode = validRoomCode;
+exports.joinRoom = joinRoom;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 function createRoom(roomData) {
     return __awaiter(this, void 0, void 0, function* () {
         return yield prisma.room.create({
             data: roomData
+        });
+    });
+}
+function validRoomCode(_a) {
+    return __awaiter(this, arguments, void 0, function* ({ code }) {
+        return yield prisma.room.findFirst({
+            where: { code }
+        });
+    });
+}
+function joinRoom(_a) {
+    return __awaiter(this, arguments, void 0, function* ({ userId, roomId }) {
+        return yield prisma.roomParticipant.create({
+            data: {
+                userId,
+                roomId
+            }
         });
     });
 }

@@ -12,6 +12,10 @@ const roomController = new RoomController();
         roomController.createRoom(req, res);
     })
 
+    router.post('/join', authGuard, (req: Request, res: Response) => {
+        roomController.joinRoom(req, res);
+    })
+
 
 
 export default router;

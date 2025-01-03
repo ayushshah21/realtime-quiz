@@ -30,6 +30,28 @@ class RoomController {
                 return res.status(500).json({ error: "Failed to create room" });
             }
         });
+        this.joinRoom = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!req.body.code) {
+                    return res.status(400).json({ error: "No room code" });
+                }
+                const roomExists = yield (0, room_service_1.validRoomCode)(req.body.code);
+                if (!roomExists) {
+                    return res.status(400).json({ error: "Invalid room code" });
+                }
+                const userId = req.userId;
+                const roomId = roomExists.id;
+                const roomData = {
+                    userId,
+                    roomId
+                };
+                const roomResponse = yield (0, room_service_1.joinRoom)(roomData);
+                return res.status(201).json(roomResponse);
+            }
+            catch (error) {
+                return res.status(500).json({ error: "Failed to join room" });
+            }
+        });
     }
 }
 exports.default = RoomController;
