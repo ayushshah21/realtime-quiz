@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import passport from "./config/passport";
 import authRoutes from "./routes/auth.routes";
+import roomRoutes from "./routes/room.routes";
+import quizRoutes from "./routes/quiz.routes";
 import dotenv from "dotenv";
 import session from "express-session";
 import http from 'http';
@@ -30,11 +32,13 @@ app.use(passport.initialize());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/quiz", quizRoutes);
 
 setupWebSocket(server);
 
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
