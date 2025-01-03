@@ -8,23 +8,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validRoomName = validRoomName;
-const zod_1 = __importDefault(require("zod"));
-const newRoomSchema = zod_1.default.object({
-    name: zod_1.default.string().min(1),
-    quizId: zod_1.default.string()
-});
-function validRoomName(req, res, next) {
+exports.createRoom = createRoom;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+function createRoom(roomData) {
     return __awaiter(this, void 0, void 0, function* () {
-        const validateBody = newRoomSchema.safeParse(req.body);
-        if (!validateBody.success) {
-            res.status(404).json({ msg: "Invalid body" });
-            return;
-        }
-        next();
+        return yield prisma.room.create({
+            data: roomData
+        });
     });
 }

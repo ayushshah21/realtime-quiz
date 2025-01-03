@@ -14,3 +14,10 @@ export interface CreateQuizInput {
     questions: CreateQuestionInput[];
     creatorId: string;
 }
+
+export interface createRoomInput{
+    name: string;
+    quizId: string;
+    creatorId: string;
+    code: string;
+}

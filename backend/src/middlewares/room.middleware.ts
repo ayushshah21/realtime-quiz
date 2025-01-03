@@ -5,6 +5,7 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 
 const newRoomSchema = z.object({
     name: z.string().min(1),
+    quizId: z.string()
 })
 
 export async function validRoomName(req: Request, res: Response, next: NextFunction){

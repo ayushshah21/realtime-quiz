@@ -13,13 +13,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
-const room_servce_1 = require("../services/room.servce");
+const room_service_1 = require("../services/room.service");
 dotenv_1.default.config();
 class RoomController {
     constructor() {
         this.createRoom = (req, res) => __awaiter(this, void 0, void 0, function* () {
-            const code = generateRoomCode();
-            const room = yield (0, room_servce_1.createRoom)(req.body);
+            try {
+                const code = generateRoomCode();
+                const creatorId = req.userId;
+                const roomData = Object.assign(Object.assign({}, req.body), { code,
+                    creatorId });
+                const room = yield (0, room_service_1.createRoom)(roomData);
+                return res.status(201).json(room);
+            }
+            catch (error) {
+                return res.status(500).json({ error: "Failed to create room" });
+            }
         });
     }
 }
