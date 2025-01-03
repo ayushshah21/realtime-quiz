@@ -54,11 +54,13 @@ passport_1.default.serializeUser((user, done) => {
 });
 passport_1.default.deserializeUser((id, done) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const user = yield prisma.user.findUnique({ where: { id } });
+        const user = yield prisma.user.findUnique({
+            where: { id },
+        });
         done(null, user);
     }
     catch (error) {
-        done(error, null);
+        done(error);
     }
 }));
 exports.default = passport_1.default;

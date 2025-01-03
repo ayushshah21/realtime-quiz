@@ -4,11 +4,14 @@ import passport from "./config/passport";
 import authRoutes from "./routes/auth.routes";
 import dotenv from "dotenv";
 import session from "express-session";
+import http from 'http';
+import { setupWebSocket } from "./websockets/socketManager";
 
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 
 // Middlewares
 app.use(
@@ -27,6 +30,8 @@ app.use(passport.initialize());
 
 // Routes
 app.use("/api/auth", authRoutes);
+
+setupWebSocket(server);
 
 const PORT = process.env.PORT || 4000;
 
