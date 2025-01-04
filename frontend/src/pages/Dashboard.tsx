@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { Shield, Loader, PlusCircle, Users } from "lucide-react";
+import { Loader, PlusCircle, Users } from "lucide-react";
+import { QuizCard } from "../components/quiz/QuizCard";
 
 interface Quiz {
   id: string;
@@ -12,7 +13,6 @@ interface Quiz {
 }
 
 export default function Dashboard() {
-  const [secretData, setSecretData] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -31,11 +31,9 @@ export default function Dashboard() {
               },
             }
           );
-          setSecretData(res.data.secretData);
 
           if (res.data.user && res.data.user.email) {
             setUserEmail(res.data.user.email);
-            // Only fetch quizzes after successful authentication
             try {
               const quizzesRes = await axios.get(
                 "http://localhost:4000/api/quiz",
@@ -65,7 +63,6 @@ export default function Dashboard() {
     };
 
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const handleLogout = async () => {
@@ -117,34 +114,11 @@ export default function Dashboard() {
             <Loader className="w-12 h-12 text-blue-500 animate-spin" />
           </div>
         ) : (
-          <>
-
-            {/* Quizzes Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {quizzes.map((quiz) => (
-                <div
-                  key={quiz.id}
-                  className="bg-white rounded-lg shadow-lg p-6 transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    {quiz.title}
-                  </h3>
-                  <p className="text-gray-600 mb-4">{quiz.description}</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">
-                      Created: {new Date(quiz.createdAt).toLocaleDateString()}
-                    </span>
-                    <button
-                      onClick={() => navigate(`/quiz/${quiz.id}`)}
-                      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {quizzes.map((quiz) => (
+              <QuizCard key={quiz.id} quiz={quiz} />
+            ))}
+          </div>
         )}
       </div>
     </div>
