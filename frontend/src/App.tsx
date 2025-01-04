@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import CreateQuiz from "./pages/CreateQuiz";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -17,6 +18,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/create-quiz"
+          element={
+            <ProtectedRoute>
+              <CreateQuiz />
             </ProtectedRoute>
           }
         />

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { Shield, Loader, AlertCircle } from 'lucide-react';
+import { Shield, Loader, AlertCircle } from "lucide-react";
 
 export default function Dashboard() {
   const [secretData, setSecretData] = useState("");
@@ -76,12 +76,19 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow-lg p-6 transition duration-300 ease-in-out transform hover:scale-105">
             <div className="flex items-center space-x-3 mb-4">
               <Shield className="w-8 h-8 text-green-500" />
-              <h3 className="text-2xl font-semibold text-gray-700">Protected Information</h3>
+              <h3 className="text-2xl font-semibold text-gray-700">
+                Protected Information
+              </h3>
             </div>
-            <p className="text-gray-600 text-lg leading-relaxed">{secretData}</p>
+            <p className="text-gray-600 text-lg leading-relaxed">
+              {secretData}
+            </p>
           </div>
         ) : (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md" role="alert">
+          <div
+            className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md"
+            role="alert"
+          >
             <div className="flex items-center">
               <AlertCircle className="w-6 h-6 mr-2" />
               <p>No protected data available.</p>
@@ -92,4 +99,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
