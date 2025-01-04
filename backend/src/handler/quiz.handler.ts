@@ -19,7 +19,12 @@ export function handleQuizEvents(io: Server, socket: Socket) {
             return;
         }
 
-        console.log('Moving to next question. Current index:', quizState.currentQuestionIndex);
+        // Clear existing timer before moving to next question
+        if (quizState.timer) {
+            clearInterval(quizState.timer);
+            quizState.timer = null;
+        }
+
         quizState.currentQuestionIndex++;
 
         // Check if quiz is finished
@@ -33,10 +38,17 @@ export function handleQuizEvents(io: Server, socket: Socket) {
             return;
         }
 
-        // Send next question
+        // Send next question with timeLimit
         const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
         console.log('Sending next question:', nextQuestion);
-        io.to(roomId).emit('new_question', nextQuestion);
+        io.to(roomId).emit('new_question', {
+            ...nextQuestion,
+            startTime: Date.now(),  // Add server start time
+            timeLimit: nextQuestion.timeLimit || 30 // Default 30 seconds if not set
+        });
+
+        // Start a fresh timer for the new question
+        startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
     }
 
     // Modify submitAnswer to call moveToNextQuestion
@@ -113,9 +125,47 @@ export function handleQuizEvents(io: Server, socket: Socket) {
                 console.log('Timeout triggered, moving to next question');
                 moveToNextQuestion(roomId);
             }, 3000);
+
+            if (quizState.timer) {
+                clearInterval(quizState.timer);
+                quizState.timer = null;
+            }
         } catch (error) {
             console.error('Error in submitAnswer:', error);
             socket.emit('error', { message: 'Failed to process answer' });
         }
     });
+
+    function startQuestionTimer(roomId: string, timeLimit: number) {
+        const quizState = activeQuizzes.get(roomId);
+        if (!quizState) return;
+
+        // Clear existing timer if any
+        if (quizState.timer) {
+            clearInterval(quizState.timer);
+        }
+
+        // Set start time
+        const startTime = Date.now();
+
+        // Emit time updates every second
+        const intervalId = setInterval(() => {
+            const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+            const timeRemaining = timeLimit - timeElapsed;
+
+            if (timeRemaining <= 0) {
+                clearInterval(intervalId);
+                // If time runs out, force move to next question
+                moveToNextQuestion(roomId);
+            } else {
+                io.to(roomId).emit('time_update', {
+                    timeRemaining,
+                    questionIndex: quizState.currentQuestionIndex
+                });
+            }
+        }, 1000);
+
+        // Store timer reference
+        quizState.timer = intervalId;
+    }
 }
