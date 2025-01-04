@@ -21,3 +21,19 @@ export interface createRoomInput{
     creatorId: string;
     code: string;
 }
+
+export interface QuizQuestion {
+    id: string;
+    text: string;
+    options: string[];
+    correctAnswer: number;
+    timeLimit: number;
+    points: number;
+    order: number;
+}
+
+export interface ActiveQuizState {
+    currentQuestionIndex: number;
+    questions: QuizQuestion[];
+    timer: NodeJS.Timeout | null;
+}

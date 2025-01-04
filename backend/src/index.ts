@@ -35,7 +35,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/quiz", quizRoutes);
 
-setupWebSocket(server);
+const io = setupWebSocket(server);
+app.set('io', io);  // Now accessible via req.app.get('io')
 
 const PORT = process.env.PORT || 4000;
 

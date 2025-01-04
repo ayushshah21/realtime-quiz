@@ -5,13 +5,12 @@ const socket_io_1 = require("socket.io");
 function setupWebSocket(server) {
     const io = new socket_io_1.Server(server, {
         cors: {
-            origin: "*", // Allow all origins for testing
+            origin: "*",
             methods: ["GET", "POST"]
         }
     });
     io.on('connection', (socket) => {
         console.log(`User connected: ${socket.id}`);
-        // handleRoomEvents(io, socket);
         socket.on('message', (message) => {
             console.log("Received user message");
             socket.emit('message', "Client just sent me this: " + message);
@@ -20,4 +19,5 @@ function setupWebSocket(server) {
             console.log(`User disconnected: ${socket.id}`);
         });
     });
+    return io;
 }

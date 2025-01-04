@@ -15,4 +15,7 @@ router.post('/create', auth_middleware_1.authGuard, room_middleware_1.validRoomN
 router.post('/join', auth_middleware_1.authGuard, (req, res) => {
     roomController.joinRoom(req, res);
 });
+router.post('/:roomId/start', auth_middleware_1.authGuard, (req, res) => {
+    roomController.startQuiz(req, res);
+});
 exports.default = router;

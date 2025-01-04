@@ -14,6 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 const room_service_1 = require("../services/room.service");
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
 dotenv_1.default.config();
 class RoomController {
     constructor() {
@@ -46,10 +48,49 @@ class RoomController {
                     roomId
                 };
                 const roomResponse = yield (0, room_service_1.joinRoom)(roomData);
-                return res.status(201).json(roomResponse);
+                return res.status(200).json(roomResponse);
             }
             catch (error) {
                 return res.status(500).json({ error: "Failed to join room" });
+            }
+        });
+        this.startQuiz = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { roomId } = req.params;
+                const userId = req.userId;
+                const room = yield prisma.room.findUnique({
+                    where: { id: roomId }
+                });
+                if (!room) {
+                    return res.status(403).json({ error: "Not authorized to start this quiz" });
+                }
+                const updatedRoom = yield prisma.room.update({
+                    where: { id: roomId },
+                    data: {
+                        status: "IN_PROGRESS",
+                        startedAt: new Date()
+                    },
+                    include: {
+                        quiz: {
+                            include: {
+                                questions: {
+                                    orderBy: {
+                                        order: 'asc'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                const io = req.app.get('io');
+                io.to(roomId).emit('quizStarted', {
+                    roomId,
+                    firstQuestion: updatedRoom.quiz.questions[0]
+                });
+                return res.status(200).json(updatedRoom);
+            }
+            catch (error) {
+                return res.status(500).json({ error: "Failed to start quiz" });
             }
         });
     }
