@@ -11,17 +11,36 @@ export async function createRoom(roomData: createRoomInput) {
     })
 }
 
-export async function validRoomCode({ code }: { code: string }) {
+export async function validRoomCode(code: string) {
+    console.log("Searching for room with code:", code);
     return await prisma.room.findFirst({
-        where: { code }
-    })
+        where: {
+            code: code,
+            status: "WAITING" // Only find rooms that haven't started
+        }
+    });
 }
 
-export async function joinRoom({userId, roomId}: {userId: string, roomId: string}) {
+export async function joinRoom({ userId, roomId }: { userId: string, roomId: string }) {
+    // First check if participant already exists
+    const existingParticipant = await prisma.roomParticipant.findUnique({
+        where: {
+            userId_roomId: {
+                userId,
+                roomId
+            }
+        }
+    });
+
+    if (existingParticipant) {
+        return existingParticipant;
+    }
+
+    // If not exists, create new participant
     return await prisma.roomParticipant.create({
         data: {
             userId,
             roomId
         }
-    })
+    });
 }

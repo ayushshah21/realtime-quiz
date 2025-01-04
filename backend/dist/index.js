@@ -32,7 +32,7 @@ app.use(passport_1.default.initialize());
 app.use("/api/auth", auth_routes_1.default);
 app.use("/api/rooms", room_routes_1.default);
 app.use("/api/quiz", quiz_routes_1.default);
-const io = (0, socketManager_1.setupWebSocket)(server);
+const io = (0, socketManager_1.initializeSocket)(server);
 app.set('io', io); // Now accessible via req.app.get('io')
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {

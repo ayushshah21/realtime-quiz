@@ -21,15 +21,32 @@ function createRoom(roomData) {
         });
     });
 }
-function validRoomCode(_a) {
-    return __awaiter(this, arguments, void 0, function* ({ code }) {
+function validRoomCode(code) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log("Searching for room with code:", code);
         return yield prisma.room.findFirst({
-            where: { code }
+            where: {
+                code: code,
+                status: "WAITING" // Only find rooms that haven't started
+            }
         });
     });
 }
 function joinRoom(_a) {
     return __awaiter(this, arguments, void 0, function* ({ userId, roomId }) {
+        // First check if participant already exists
+        const existingParticipant = yield prisma.roomParticipant.findUnique({
+            where: {
+                userId_roomId: {
+                    userId,
+                    roomId
+                }
+            }
+        });
+        if (existingParticipant) {
+            return existingParticipant;
+        }
+        // If not exists, create new participant
         return yield prisma.roomParticipant.create({
             data: {
                 userId,

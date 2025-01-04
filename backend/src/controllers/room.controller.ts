@@ -6,12 +6,12 @@ import dotenv from 'dotenv'
 import { createRoom, validRoomCode, joinRoom } from '../services/room.service';
 import { PrismaClient } from '@prisma/client';
 import { ActiveQuizState, QuizQuestion } from '../types/types';
+import { activeQuizzes } from '../state/quizState';
+import { getIO } from '../websockets/socketManager';
 
 const prisma = new PrismaClient();
 
 dotenv.config();
-
-const activeQuizzes = new Map<string, ActiveQuizState>();
 
 export default class RoomController {
     createRoom = async (req: Request, res: Response) => {
@@ -32,24 +32,35 @@ export default class RoomController {
     }
     joinRoom = async (req: Request, res: Response) => {
         try {
+            console.log("Join room request:", req.body.code);
             if (!req.body.code) {
                 return res.status(400).json({ error: "No room code" });
             }
+
             const roomExists = await validRoomCode(req.body.code);
+            console.log("Room exists:", roomExists);
+
             if (!roomExists) {
                 return res.status(400).json({ error: "Invalid room code" });
             }
+
             const userId = (req as any).userId;
             const roomId = roomExists.id;
+            console.log("Attempting to join room:", { userId, roomId });
+
             const roomData = {
                 userId,
                 roomId
             }
+
             const roomResponse = await joinRoom(roomData);
+            console.log("Join room response:", roomResponse);
+
             return res.status(200).json(roomResponse);
         }
         catch (error) {
-            return res.status(500).json({ error: "Failed to join room" });
+            console.error("Join room error:", error);
+            return res.status(500).json({error: "Failed to join room"});
         }
     }
 
@@ -93,11 +104,14 @@ export default class RoomController {
             });
 
             // Emit to clients only
-            const io = req.app.get('io');
+            const io = getIO();
             io.to(roomId).emit('quizStarted', {
                 roomId,
                 firstQuestion: room.quiz.questions[0]
             });
+
+            // Also emit the first question
+            io.to(roomId).emit('new_question', room.quiz.questions[0]);
 
             return res.status(200).json(updatedRoom);
         } catch (error) {

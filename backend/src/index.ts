@@ -7,7 +7,7 @@ import quizRoutes from "./routes/quiz.routes";
 import dotenv from "dotenv";
 import session from "express-session";
 import http from 'http';
-import { setupWebSocket } from "./websockets/socketManager";
+import { initializeSocket } from "./websockets/socketManager";
 
 
 dotenv.config();
@@ -35,7 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/quiz", quizRoutes);
 
-const io = setupWebSocket(server);
+const io = initializeSocket(server);
 app.set('io', io);  // Now accessible via req.app.get('io')
 
 const PORT = process.env.PORT || 4000;

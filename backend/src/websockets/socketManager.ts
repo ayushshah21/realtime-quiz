@@ -2,8 +2,10 @@ import { Server } from 'socket.io';
 import * as http from 'http';
 import { handleQuizEvents } from '../handler/quiz.handler';
 
-export function setupWebSocket(server: http.Server) {
-    const io = new Server(server, {
+let io: Server;
+
+export function initializeSocket(server: http.Server) {
+    io = new Server(server, {
         cors: {
             origin: "*",
             methods: ["GET", "POST"],
@@ -25,5 +27,12 @@ export function setupWebSocket(server: http.Server) {
         });
     });
 
+    return io;
+}
+
+export function getIO() {
+    if (!io) {
+        throw new Error('Socket.IO not initialized');
+    }
     return io;
 }
