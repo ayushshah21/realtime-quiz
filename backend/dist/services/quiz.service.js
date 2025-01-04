@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createQuiz = createQuiz;
+exports.resetScoresForRoom = resetScoresForRoom;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 // POST /api/quizzes
@@ -33,6 +34,17 @@ function createQuiz(_a) {
             },
             include: {
                 questions: true // Include questions in the response
+            }
+        });
+    });
+}
+function resetScoresForRoom(roomId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return yield prisma.score.deleteMany({
+            where: {
+                participant: {
+                    roomId: roomId
+                }
             }
         });
     });

@@ -1,4 +1,3 @@
-// import EventModel from '../models/eventModel';
 import { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -60,7 +59,7 @@ export default class RoomController {
         }
         catch (error) {
             console.error("Join room error:", error);
-            return res.status(500).json({error: "Failed to join room"});
+            return res.status(500).json({ error: "Failed to join room" });
         }
     }
 
@@ -68,6 +67,15 @@ export default class RoomController {
         try {
             const { roomId } = req.params;
             const userId = (req as any).userId;
+
+            // Reset scores for this room before starting
+            await prisma.score.deleteMany({
+                where: {
+                    participant: {
+                        roomId: roomId
+                    }
+                }
+            });
 
             const room = await prisma.room.findUnique({
                 where: { id: roomId },
@@ -115,6 +123,7 @@ export default class RoomController {
 
             return res.status(200).json(updatedRoom);
         } catch (error) {
+            console.error('Error starting quiz:', error);
             return res.status(500).json({ error: "Failed to start quiz" });
         }
     }

@@ -65,6 +65,14 @@ class RoomController {
             try {
                 const { roomId } = req.params;
                 const userId = req.userId;
+                // Reset scores for this room before starting
+                yield prisma.score.deleteMany({
+                    where: {
+                        participant: {
+                            roomId: roomId
+                        }
+                    }
+                });
                 const room = yield prisma.room.findUnique({
                     where: { id: roomId },
                     include: {
@@ -106,6 +114,7 @@ class RoomController {
                 return res.status(200).json(updatedRoom);
             }
             catch (error) {
+                console.error('Error starting quiz:', error);
                 return res.status(500).json({ error: "Failed to start quiz" });
             }
         });

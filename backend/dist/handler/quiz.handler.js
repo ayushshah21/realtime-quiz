@@ -22,33 +22,33 @@ function handleQuizEvents(io, socket) {
     // Add function to move to next question
     function moveToNextQuestion(roomId) {
         const quizState = quizState_1.activeQuizzes.get(roomId);
-        if (!quizState) {
-            console.log('No quiz state found for room:', roomId);
+        if (!quizState)
             return;
-        }
-        // Clear existing timer before moving to next question
+        // Clear existing timer
         if (quizState.timer) {
             clearInterval(quizState.timer);
             quizState.timer = null;
         }
-        quizState.currentQuestionIndex++;
-        // Check if quiz is finished
-        if (quizState.currentQuestionIndex >= quizState.questions.length) {
-            console.log('Quiz ended');
-            io.to(roomId).emit('quiz_ended', {
-                message: 'Quiz completed',
-                totalQuestions: quizState.questions.length
-            });
-            quizState_1.activeQuizzes.delete(roomId);
-            return;
-        }
-        // Send next question with timeLimit
-        const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
-        console.log('Sending next question:', nextQuestion);
-        io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30 // Default 30 seconds if not set
-         }));
-        // Start a fresh timer for the new question
-        startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
+        // Show leaderboard first
+        getTopScores(roomId).then(scores => {
+            io.to(roomId).emit('leaderboard_update', { scores });
+            // Wait 3 seconds before moving to next question
+            setTimeout(() => {
+                quizState.currentQuestionIndex++;
+                if (quizState.currentQuestionIndex >= quizState.questions.length) {
+                    io.to(roomId).emit('quiz_ended', {
+                        message: 'Quiz completed',
+                        totalQuestions: quizState.questions.length,
+                        finalScores: scores
+                    });
+                    quizState_1.activeQuizzes.delete(roomId);
+                    return;
+                }
+                const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
+                io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30 }));
+                startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
+            }, 3000); // Show leaderboard for 3 seconds
+        });
     }
     // Modify submitAnswer to call moveToNextQuestion
     socket.on('submitAnswer', (_a) => __awaiter(this, [_a], void 0, function* ({ roomId, userId, answer }) {
@@ -154,5 +154,44 @@ function handleQuizEvents(io, socket) {
         }, 1000);
         // Store timer reference
         quizState.timer = intervalId;
+    }
+    function getTopScores(roomId_1) {
+        return __awaiter(this, arguments, void 0, function* (roomId, limit = 5) {
+            const scores = yield prisma.score.findMany({
+                where: {
+                    participant: {
+                        roomId: roomId
+                    }
+                },
+                orderBy: {
+                    score: 'desc'
+                },
+                take: limit,
+                include: {
+                    user: {
+                        select: {
+                            email: true
+                        }
+                    }
+                }
+            });
+            return scores.map(score => ({
+                username: score.user.email,
+                score: score.score,
+                correctCount: score.correctCount,
+                answeredCount: score.answeredCount
+            }));
+        });
+    }
+    function resetScoresForRoom(roomId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield prisma.score.deleteMany({
+                where: {
+                    participant: {
+                        roomId: roomId
+                    }
+                }
+            });
+        });
     }
 }

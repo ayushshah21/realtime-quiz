@@ -14,41 +14,42 @@ export function handleQuizEvents(io: Server, socket: Socket) {
     // Add function to move to next question
     function moveToNextQuestion(roomId: string) {
         const quizState = activeQuizzes.get(roomId);
-        if (!quizState) {
-            console.log('No quiz state found for room:', roomId);
-            return;
-        }
+        if (!quizState) return;
 
-        // Clear existing timer before moving to next question
+        // Clear existing timer
         if (quizState.timer) {
             clearInterval(quizState.timer);
             quizState.timer = null;
         }
 
-        quizState.currentQuestionIndex++;
+        // Show leaderboard first
+        getTopScores(roomId).then(scores => {
+            io.to(roomId).emit('leaderboard_update', { scores });
 
-        // Check if quiz is finished
-        if (quizState.currentQuestionIndex >= quizState.questions.length) {
-            console.log('Quiz ended');
-            io.to(roomId).emit('quiz_ended', {
-                message: 'Quiz completed',
-                totalQuestions: quizState.questions.length
-            });
-            activeQuizzes.delete(roomId);
-            return;
-        }
+            // Wait 3 seconds before moving to next question
+            setTimeout(() => {
+                quizState.currentQuestionIndex++;
 
-        // Send next question with timeLimit
-        const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
-        console.log('Sending next question:', nextQuestion);
-        io.to(roomId).emit('new_question', {
-            ...nextQuestion,
-            startTime: Date.now(),  // Add server start time
-            timeLimit: nextQuestion.timeLimit || 30 // Default 30 seconds if not set
+                if (quizState.currentQuestionIndex >= quizState.questions.length) {
+                    io.to(roomId).emit('quiz_ended', {
+                        message: 'Quiz completed',
+                        totalQuestions: quizState.questions.length,
+                        finalScores: scores
+                    });
+                    activeQuizzes.delete(roomId);
+                    return;
+                }
+
+                const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
+                io.to(roomId).emit('new_question', {
+                    ...nextQuestion,
+                    startTime: Date.now(),
+                    timeLimit: nextQuestion.timeLimit || 30
+                });
+
+                startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
+            }, 3000); // Show leaderboard for 3 seconds
         });
-
-        // Start a fresh timer for the new question
-        startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
     }
 
     // Modify submitAnswer to call moveToNextQuestion
@@ -167,5 +168,43 @@ export function handleQuizEvents(io: Server, socket: Socket) {
 
         // Store timer reference
         quizState.timer = intervalId;
+    }
+
+    async function getTopScores(roomId: string, limit: number = 5) {
+        const scores = await prisma.score.findMany({
+            where: {
+                participant: {
+                    roomId: roomId
+                }
+            },
+            orderBy: {
+                score: 'desc'
+            },
+            take: limit,
+            include: {
+                user: {
+                    select: {
+                        email: true
+                    }
+                }
+            }
+        });
+
+        return scores.map(score => ({
+            username: score.user.email,
+            score: score.score,
+            correctCount: score.correctCount,
+            answeredCount: score.answeredCount
+        }));
+    }
+
+    async function resetScoresForRoom(roomId: string) {
+        await prisma.score.deleteMany({
+            where: {
+                participant: {
+                    roomId: roomId
+                }
+            }
+        });
     }
 }
