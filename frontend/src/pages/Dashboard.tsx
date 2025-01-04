@@ -2,12 +2,20 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { Shield, Loader, AlertCircle } from "lucide-react";
+import { Shield, Loader, PlusCircle, Users } from "lucide-react";
+
+interface Quiz {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+}
 
 export default function Dashboard() {
   const [secretData, setSecretData] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,6 +35,20 @@ export default function Dashboard() {
 
           if (res.data.user && res.data.user.email) {
             setUserEmail(res.data.user.email);
+            // Only fetch quizzes after successful authentication
+            try {
+              const quizzesRes = await axios.get(
+                "http://localhost:4000/api/quiz",
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+              setQuizzes(quizzesRes.data);
+            } catch (quizErr) {
+              console.error("Failed to fetch quizzes:", quizErr);
+            }
           } else {
             console.error("User data is not available in the response");
             handleLogout();
@@ -43,57 +65,86 @@ export default function Dashboard() {
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const handleLogout = async () => {
     try {
-      // Call logout endpoint to clear session
       await axios.get("http://localhost:4000/api/auth/logout");
-
-      // Clear local storage
       localStorage.removeItem("token");
-
-      // Redirect to login
       navigate("/login");
     } catch (err) {
       console.error("Logout failed:", err);
-      // Still remove token and redirect even if server logout fails
       localStorage.removeItem("token");
       navigate("/login");
     }
+  };
+
+  const handleCreateQuiz = () => {
+    navigate("/create-quiz");
+  };
+
+  const handleJoinRoom = () => {
+    navigate("/join-room");
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
       {userEmail && <Navbar userEmail={userEmail} />}
       <div className="container mx-auto p-6">
-        <h2 className="text-3xl font-bold text-gray-800 mb-6">Dashboard</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-3xl font-bold text-gray-800">Dashboard</h2>
+          <div className="space-x-4">
+            <button
+              onClick={handleCreateQuiz}
+              className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <PlusCircle className="w-5 h-5 mr-2" />
+              Create Quiz
+            </button>
+            <button
+              onClick={handleJoinRoom}
+              className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Join Room
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <Loader className="w-12 h-12 text-blue-500 animate-spin" />
           </div>
-        ) : secretData ? (
-          <div className="bg-white rounded-lg shadow-lg p-6 transition duration-300 ease-in-out transform hover:scale-105">
-            <div className="flex items-center space-x-3 mb-4">
-              <Shield className="w-8 h-8 text-green-500" />
-              <h3 className="text-2xl font-semibold text-gray-700">
-                Protected Information
-              </h3>
-            </div>
-            <p className="text-gray-600 text-lg leading-relaxed">
-              {secretData}
-            </p>
-          </div>
         ) : (
-          <div
-            className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md"
-            role="alert"
-          >
-            <div className="flex items-center">
-              <AlertCircle className="w-6 h-6 mr-2" />
-              <p>No protected data available.</p>
+          <>
+
+            {/* Quizzes Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {quizzes.map((quiz) => (
+                <div
+                  key={quiz.id}
+                  className="bg-white rounded-lg shadow-lg p-6 transition duration-300 ease-in-out transform hover:scale-105"
+                >
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    {quiz.title}
+                  </h3>
+                  <p className="text-gray-600 mb-4">{quiz.description}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                      Created: {new Date(quiz.createdAt).toLocaleDateString()}
+                    </span>
+                    <button
+                      onClick={() => navigate(`/quiz/${quiz.id}`)}
+                      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
