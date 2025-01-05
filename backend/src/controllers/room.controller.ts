@@ -31,34 +31,42 @@ export default class RoomController {
     }
     joinRoom = async (req: Request, res: Response) => {
         try {
-            console.log("Join room request:", req.body.code);
-            if (!req.body.code) {
-                return res.status(400).json({ error: "No room code" });
-            }
-
-            const roomExists = await validRoomCode(req.body.code);
-            console.log("Room exists:", roomExists);
-
-            if (!roomExists) {
-                return res.status(400).json({ error: "Invalid room code" });
-            }
-
+            const { code } = req.body;
             const userId = (req as any).userId;
-            const roomId = roomExists.id;
-            console.log("Attempting to join room:", { userId, roomId });
 
-            const roomData = {
-                userId,
-                roomId
+            const room = await validRoomCode(code);
+            if (!room) {
+                return res.status(404).json({ error: "Room not found" });
             }
 
-            const roomResponse = await joinRoom(roomData);
-            console.log("Join room response:", roomResponse);
+            await joinRoom({ userId, roomId: room.id });
 
-            return res.status(200).json(roomResponse);
-        }
-        catch (error) {
-            console.error("Join room error:", error);
+            // Get updated room data with participants
+            const updatedRoom = await prisma.room.findUnique({
+                where: { id: room.id },
+                include: {
+                    quiz: { select: { title: true } },
+                    participants: {
+                        include: {
+                            user: { select: { email: true } }
+                        }
+                    }
+                }
+            });
+
+            // Add console.log to debug
+            console.log('Emitting participantJoined event:', updatedRoom);
+
+            const io = getIO();
+            // Make sure clients are in the room before emitting
+            const sockets = await io.in(room.id).fetchSockets();
+            console.log(`Number of clients in room ${room.id}:`, sockets.length);
+
+            io.to(room.id).emit('participantJoined', updatedRoom);
+
+            return res.status(200).json({ roomId: room.id });
+        } catch (error) {
+            console.error('Error joining room:', error);
             return res.status(500).json({ error: "Failed to join room" });
         }
     }
@@ -127,6 +135,43 @@ export default class RoomController {
             return res.status(500).json({ error: "Failed to start quiz" });
         }
     }
+
+    getRoomDetails = async (req: Request, res: Response) => {
+        try {
+            console.log("IN HERE");
+            const { roomId } = req.params;
+            const userId = (req as any).userId;
+
+            const room = await prisma.room.findUnique({
+                where: { id: roomId },
+                include: {
+                    quiz: {
+                        select: {
+                            title: true,
+                        }
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    email: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!room) {
+                return res.status(404).json({ error: "Room not found" });
+            }
+
+            return res.status(200).json(room);
+        } catch (error) {
+            console.error('Error fetching room details:', error);
+            return res.status(500).json({ error: "Failed to fetch room details" });
+        }
+    };
 
 }
 

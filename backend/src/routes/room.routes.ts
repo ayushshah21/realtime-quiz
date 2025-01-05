@@ -20,6 +20,10 @@ router.post('/:roomId/start', authGuard, (req: Request, res: Response) => {
     roomController.startQuiz(req, res);
 });
 
+router.get('/:roomId', authGuard, (req: Request, res: Response) => {
+    roomController.getRoomDetails(req, res);
+});
+
 
 
 export default router;

@@ -8,10 +8,12 @@ import QuizController from "../controllers/quiz.controller";
 const router = Router();
 const quizController = new QuizController();
 
-    router.post('/create', authGuard, validQuizFormat, (req: Request, res: Response) => {
-        quizController.createQuiz(req, res);
-    })
+router.post('/create', authGuard, validQuizFormat, (req: Request, res: Response) => {
+    quizController.createQuiz(req, res);
+})
 
-
+router.get('/', authGuard, (req: Request, res: Response) => {
+    quizController.getUserQuizzes(req, res);
+})
 
 export default router;

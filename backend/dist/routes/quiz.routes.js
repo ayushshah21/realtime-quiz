@@ -12,4 +12,7 @@ const quizController = new quiz_controller_1.default();
 router.post('/create', auth_middleware_1.authGuard, quiz_middleware_1.validQuizFormat, (req, res) => {
     quizController.createQuiz(req, res);
 });
+router.get('/', auth_middleware_1.authGuard, (req, res) => {
+    quizController.getUserQuizzes(req, res);
+});
 exports.default = router;

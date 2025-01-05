@@ -29,12 +29,3 @@ const prisma = new PrismaClient();
     });
 }
 
-export async function resetScoresForRoom(roomId: string) {
-    return await prisma.score.deleteMany({
-        where: {
-            participant: {
-                roomId: roomId
-            }
-        }
-    });
-}

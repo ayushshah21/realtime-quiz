@@ -18,4 +18,7 @@ router.post('/join', auth_middleware_1.authGuard, (req, res) => {
 router.post('/:roomId/start', auth_middleware_1.authGuard, (req, res) => {
     roomController.startQuiz(req, res);
 });
+router.get('/:roomId', auth_middleware_1.authGuard, (req, res) => {
+    roomController.getRoomDetails(req, res);
+});
 exports.default = router;

@@ -36,28 +36,36 @@ class RoomController {
         });
         this.joinRoom = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("Join room request:", req.body.code);
-                if (!req.body.code) {
-                    return res.status(400).json({ error: "No room code" });
-                }
-                const roomExists = yield (0, room_service_1.validRoomCode)(req.body.code);
-                console.log("Room exists:", roomExists);
-                if (!roomExists) {
-                    return res.status(400).json({ error: "Invalid room code" });
-                }
+                const { code } = req.body;
                 const userId = req.userId;
-                const roomId = roomExists.id;
-                console.log("Attempting to join room:", { userId, roomId });
-                const roomData = {
-                    userId,
-                    roomId
-                };
-                const roomResponse = yield (0, room_service_1.joinRoom)(roomData);
-                console.log("Join room response:", roomResponse);
-                return res.status(200).json(roomResponse);
+                const room = yield (0, room_service_1.validRoomCode)(code);
+                if (!room) {
+                    return res.status(404).json({ error: "Room not found" });
+                }
+                yield (0, room_service_1.joinRoom)({ userId, roomId: room.id });
+                // Get updated room data with participants
+                const updatedRoom = yield prisma.room.findUnique({
+                    where: { id: room.id },
+                    include: {
+                        quiz: { select: { title: true } },
+                        participants: {
+                            include: {
+                                user: { select: { email: true } }
+                            }
+                        }
+                    }
+                });
+                // Add console.log to debug
+                console.log('Emitting participantJoined event:', updatedRoom);
+                const io = (0, socketManager_1.getIO)();
+                // Make sure clients are in the room before emitting
+                const sockets = yield io.in(room.id).fetchSockets();
+                console.log(`Number of clients in room ${room.id}:`, sockets.length);
+                io.to(room.id).emit('participantJoined', updatedRoom);
+                return res.status(200).json({ roomId: room.id });
             }
             catch (error) {
-                console.error("Join room error:", error);
+                console.error('Error joining room:', error);
                 return res.status(500).json({ error: "Failed to join room" });
             }
         });
@@ -116,6 +124,40 @@ class RoomController {
             catch (error) {
                 console.error('Error starting quiz:', error);
                 return res.status(500).json({ error: "Failed to start quiz" });
+            }
+        });
+        this.getRoomDetails = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                console.log("IN HERE");
+                const { roomId } = req.params;
+                const userId = req.userId;
+                const room = yield prisma.room.findUnique({
+                    where: { id: roomId },
+                    include: {
+                        quiz: {
+                            select: {
+                                title: true,
+                            }
+                        },
+                        participants: {
+                            include: {
+                                user: {
+                                    select: {
+                                        email: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                if (!room) {
+                    return res.status(404).json({ error: "Room not found" });
+                }
+                return res.status(200).json(room);
+            }
+            catch (error) {
+                console.error('Error fetching room details:', error);
+                return res.status(500).json({ error: "Failed to fetch room details" });
             }
         });
     }
