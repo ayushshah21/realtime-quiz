@@ -18,7 +18,7 @@ interface Score {
 
 interface ActiveQuizHostProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  socket: any; // We'll properly type this later
+  socket: any;
   onQuizEnd?: () => void;
 }
 
@@ -35,7 +35,6 @@ export const ActiveQuizHost: React.FC<ActiveQuizHostProps> = ({
   useEffect(() => {
     if (!socket) return;
 
-    // Listen for new questions
     socket.on(
       "new_question",
       (question: Question & { totalQuestions: number }) => {
@@ -45,7 +44,6 @@ export const ActiveQuizHost: React.FC<ActiveQuizHostProps> = ({
       }
     );
 
-    // Listen for time updates
     socket.on(
       "time_update",
       ({
@@ -60,12 +58,10 @@ export const ActiveQuizHost: React.FC<ActiveQuizHostProps> = ({
       }
     );
 
-    // Listen for leaderboard updates
     socket.on("leaderboard_update", ({ scores }: { scores: Score[] }) => {
       setScores(scores);
     });
 
-    // Listen for quiz end
     socket.on("quiz_ended", ({ finalScores }: { finalScores: Score[] }) => {
       setScores(finalScores);
       onQuizEnd?.();
@@ -90,12 +86,11 @@ export const ActiveQuizHost: React.FC<ActiveQuizHostProps> = ({
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Question and Timer */}
         <div className="md:col-span-2">
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between mb-6">
               <span className="text-sm font-medium text-gray-500">
-                Question {questionNumber} of {totalQuestions}
+                Question {questionNumber} of {totalQuestions || "-"}
               </span>
               <div className="flex items-center text-gray-600">
                 <Timer className="w-5 h-5 mr-2" />
@@ -125,31 +120,55 @@ export const ActiveQuizHost: React.FC<ActiveQuizHostProps> = ({
           </div>
         </div>
 
-        {/* Live Leaderboard */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full h-[calc(100vh-24rem)] flex flex-col">
           <div className="flex items-center mb-4">
             <Award className="w-5 h-5 mr-2 text-yellow-500" />
             <h3 className="text-lg font-semibold">Live Leaderboard</h3>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3 overflow-y-auto flex-grow">
             {scores.map((score, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className={`flex items-center justify-between p-4 rounded-lg w-full ${
+                  index === 0
+                    ? "bg-yellow-50 border border-yellow-200"
+                    : index === 1
+                    ? "bg-gray-50 border border-gray-200"
+                    : index === 2
+                    ? "bg-orange-50 border border-orange-200"
+                    : "bg-white border border-gray-100"
+                }`}
               >
-                <div className="flex items-center">
-                  <span className="font-mono text-gray-500 mr-3">
+                <div className="flex items-center space-x-4 min-w-0">
+                  <span
+                    className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold ${
+                      index === 0
+                        ? "bg-yellow-100 text-yellow-700"
+                        : index === 1
+                        ? "bg-gray-100 text-gray-700"
+                        : index === 2
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-blue-50 text-blue-700"
+                    }`}
+                  >
                     {index + 1}
                   </span>
-                  <div>
-                    <p className="font-medium">{score.username}</p>
+                  <div className="min-w-0 flex-shrink">
+                    <p className="font-medium text-gray-900 truncate">
+                      {score.username}
+                    </p>
                     <p className="text-sm text-gray-500">
                       {score.correctCount}/{score.answeredCount} correct
                     </p>
                   </div>
                 </div>
-                <span className="font-bold">{score.score}</span>
+                <div className="flex items-center justify-end flex-shrink-0 ml-4">
+                  <span className="font-mono font-bold text-lg text-gray-900">
+                    {score.score}
+                  </span>
+                  <span className="ml-1 text-sm text-gray-500">pts</span>
+                </div>
               </div>
             ))}
 

@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Users } from 'lucide-react';
 import { useWebSocket } from "../hooks/useWebSocket";
 import { ActiveQuizParticipant } from "../components/quiz/ActiveQuizParticipant";
 
@@ -44,6 +43,7 @@ export default function ParticipantRoom() {
         if (response.data.status === "IN_PROGRESS") {
           socket?.emit("rejoin_quiz", { roomId });
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         setError(err.response?.data?.error || "Failed to fetch room details");
       }
@@ -81,11 +81,11 @@ export default function ParticipantRoom() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-100 p-6">
-        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
           <p className="text-red-500 text-center">{error}</p>
           <button
             onClick={() => navigate("/dashboard")}
-            className="mt-4 text-blue-500 hover:text-blue-700"
+            className="mt-4 text-blue-600 hover:text-blue-800 focus:outline-none focus:underline"
           >
             Return to Dashboard
           </button>
@@ -101,11 +101,11 @@ export default function ParticipantRoom() {
   if (room?.status === "COMPLETED") {
     return (
       <div className="min-h-screen bg-gray-100 p-6">
-        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
+        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 text-center">
           <h2 className="text-2xl font-bold mb-4">Quiz Completed</h2>
           <button
             onClick={() => navigate("/dashboard")}
-            className="text-blue-500 hover:text-blue-700"
+            className="text-blue-600 hover:text-blue-800 focus:outline-none focus:underline"
           >
             Return to Dashboard
           </button>
@@ -119,13 +119,13 @@ export default function ParticipantRoom() {
       <div className="max-w-4xl mx-auto p-6">
         <button
           onClick={() => navigate("/dashboard")}
-          className="flex items-center text-gray-600 hover:text-gray-800 mb-8"
+          className="flex items-center text-gray-600 hover:text-gray-800 mb-8 focus:outline-none focus:underline"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back to Dashboard
         </button>
 
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
           {room && (
             <>
               <div className="flex justify-between items-center mb-6">
@@ -166,3 +166,4 @@ export default function ParticipantRoom() {
     </div>
   );
 }
+
