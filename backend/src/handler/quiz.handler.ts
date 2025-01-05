@@ -50,7 +50,8 @@ export function handleQuizEvents(io: Server, socket: AuthenticatedSocket) {
                         io.to(roomId).emit('new_question', {
                             ...nextQuestion,
                             startTime: Date.now(),
-                            timeLimit: nextQuestion.timeLimit || 30
+                            timeLimit: nextQuestion.timeLimit || 30,
+                            totalQuestions: quizState.questions.length
                         });
 
                         // Start timer for next question

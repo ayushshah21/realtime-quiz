@@ -40,7 +40,7 @@ function handleQuizEvents(io, socket) {
                         quizState.currentQuestionIndex++;
                         quizState.answeredUserIds.clear(); // Reset the set
                         const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
-                        io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30 }));
+                        io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30, totalQuestions: quizState.questions.length }));
                         // Start timer for next question
                         startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
                     }, 3000); // Show intermediate leaderboard for 5 seconds
