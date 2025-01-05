@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateQuiz from "./pages/CreateQuiz";
 import ProtectedRoute from "./components/ProtectedRoute";
 import JoinRoom from "./pages/JoinRoom";
+import HostRoom from "./pages/HostRoom";
 
 function App() {
   return (
@@ -30,11 +31,19 @@ function App() {
             </ProtectedRoute>
           }
         />
-         <Route
+        <Route
           path="/join-room"
           element={
             <ProtectedRoute>
               <JoinRoom />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/host-room/:roomId"
+          element={
+            <ProtectedRoute>
+              <HostRoom />
             </ProtectedRoute>
           }
         />

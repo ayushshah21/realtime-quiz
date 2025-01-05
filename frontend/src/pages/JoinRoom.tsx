@@ -16,15 +16,15 @@ export default function JoinRoom() {
 
     try {
       const response = await axios.post(
-        "http://localhost:4000/api/room/join",
-        { roomCode },
+        "http://localhost:4000/api/rooms/join",
+        { code: roomCode },
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         }
       );
-
+      console.log(response);
       navigate(`/room/${response.data.id}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {

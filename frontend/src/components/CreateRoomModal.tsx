@@ -6,14 +6,14 @@ interface CreateRoomModalProps {
   quizId: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (roomName: string) => void;
 }
 
-export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ 
-  quizId, 
-  isOpen, 
-  onClose, 
-  onSuccess 
+export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
+  quizId,
+  isOpen,
+  onClose,
+  onSuccess,
 }) => {
   const [roomName, setRoomName] = useState("");
   const [error, setError] = useState("");
@@ -34,9 +34,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           },
         }
       );
-      onSuccess();
+      onSuccess(roomName);
       onClose();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       setError("Failed to create room");
     } finally {

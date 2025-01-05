@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CreateRoomModal } from "../CreateRoomModal";
+import axios from "axios";
 import { CalendarIcon, UsersIcon, ChevronRightIcon } from "lucide-react";
 
 interface QuizCardProps {
@@ -15,6 +16,30 @@ interface QuizCardProps {
 export const QuizCard: React.FC<QuizCardProps> = ({ quiz }) => {
   const navigate = useNavigate();
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [error, setError] = useState("");
+
+  const handleCreateRoom = async (roomName: string) => {
+    try {
+      const response = await axios.post(
+        "http://localhost:4000/api/rooms/create",
+        {
+          quizId: quiz.id,
+          name: roomName,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      setIsCreateRoomModalOpen(false);
+      navigate(`/host-room/${response.data.id}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to create room");
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col h-full">
@@ -55,9 +80,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({ quiz }) => {
         quizId={quiz.id}
         isOpen={isCreateRoomModalOpen}
         onClose={() => setIsCreateRoomModalOpen(false)}
-        onSuccess={() => {
-          // Optionally refresh the quiz list
-        }}
+        onSuccess={handleCreateRoom}
       />
     </div>
   );
