@@ -43,7 +43,7 @@ function handleQuizEvents(io, socket) {
                         io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30 }));
                         // Start timer for next question
                         startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
-                    }, 5000); // Show intermediate leaderboard for 5 seconds
+                    }, 3000); // Show intermediate leaderboard for 5 seconds
                 }
                 else {
                     // For the final question, show final leaderboard
@@ -58,9 +58,9 @@ function handleQuizEvents(io, socket) {
                         setTimeout(() => {
                             quizState_1.activeQuizzes.delete(roomId);
                         }, 30000); // Keep quiz state for 30 seconds after completion
-                    }, 10000); // Show final leaderboard for 10 seconds
+                    }, 5000); // Show final leaderboard for 10 seconds
                 }
-            }, 2000); // 2-second delay before showing leaderboard after last answer
+            }, 1000); // 2-second delay before showing leaderboard after last answer
         });
     }
     // Modify submitAnswer to call moveToNextQuestion

@@ -74,6 +74,7 @@ export default function ParticipantRoom() {
   const handleQuizEnd = () => {
     if (room) {
       setRoom({ ...room, status: "COMPLETED" });
+      navigate("/dashboard");
     }
   };
 

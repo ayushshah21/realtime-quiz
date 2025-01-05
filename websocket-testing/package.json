@@ -1,0 +1,18 @@
+{
+  "name": "websocket-testing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "socket.io-client": "^4.8.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node testClient.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
