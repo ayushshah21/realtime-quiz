@@ -1,10 +1,21 @@
 import { Server, Socket } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Question } from '@prisma/client';
 import { activeQuizzes } from '../state/quizState';
 
 const prisma = new PrismaClient();
 
-export function handleQuizEvents(io: Server, socket: Socket) {
+interface AuthenticatedSocket extends Socket {
+    userId: string;
+}
+
+interface QuizState {
+    currentQuestionIndex: number;
+    questions: Question[];
+    timer: NodeJS.Timeout | null;
+    answeredUserIds: Set<string>;
+}
+
+export function handleQuizEvents(io: Server, socket: AuthenticatedSocket) {
     // Add join room handler
     socket.on('join_room', ({ roomId }) => {
         socket.join(roomId);
@@ -16,7 +27,7 @@ export function handleQuizEvents(io: Server, socket: Socket) {
         const quizState = activeQuizzes.get(roomId);
         if (!quizState) return;
 
-        // Clear existing timer
+        // Clear any existing timer
         if (quizState.timer) {
             clearInterval(quizState.timer);
             quizState.timer = null;
@@ -24,55 +35,70 @@ export function handleQuizEvents(io: Server, socket: Socket) {
 
         // Show leaderboard first
         getTopScores(roomId).then(scores => {
-            io.to(roomId).emit('leaderboard_update', { scores });
-
-            // Wait 3 seconds before moving to next question
+            // Add a delay before showing leaderboard
             setTimeout(() => {
-                quizState.currentQuestionIndex++;
+                io.to(roomId).emit('leaderboard_update', { scores });
 
-                if (quizState.currentQuestionIndex >= quizState.questions.length) {
-                    io.to(roomId).emit('quiz_ended', {
-                        message: 'Quiz completed',
-                        totalQuestions: quizState.questions.length,
-                        finalScores: scores
-                    });
-                    activeQuizzes.delete(roomId);
-                    return;
+                // Only proceed if we haven't reached the end
+                if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
+                    setTimeout(() => {
+                        quizState.currentQuestionIndex++;
+                        quizState.answeredUserIds.clear(); // Reset the set
+
+                        const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
+
+                        io.to(roomId).emit('new_question', {
+                            ...nextQuestion,
+                            startTime: Date.now(),
+                            timeLimit: nextQuestion.timeLimit || 30
+                        });
+
+                        // Start timer for next question
+                        startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
+                    }, 5000); // Show intermediate leaderboard for 5 seconds
+                } else {
+                    // For the final question, show final leaderboard
+                    setTimeout(() => {
+                        // First, send the final scores
+                        io.to(roomId).emit('quiz_ended', {
+                            message: 'Quiz completed',
+                            totalQuestions: quizState.questions.length,
+                            finalScores: scores
+                        });
+
+                        // Clean up the quiz state after giving time to view the results
+                        setTimeout(() => {
+                            activeQuizzes.delete(roomId);
+                        }, 30000); // Keep quiz state for 30 seconds after completion
+                    }, 10000); // Show final leaderboard for 10 seconds
                 }
-
-                const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
-                io.to(roomId).emit('new_question', {
-                    ...nextQuestion,
-                    startTime: Date.now(),
-                    timeLimit: nextQuestion.timeLimit || 30
-                });
-
-                startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
-            }, 3000); // Show leaderboard for 3 seconds
+            }, 2000); // 2-second delay before showing leaderboard after last answer
         });
     }
 
     // Modify submitAnswer to call moveToNextQuestion
-    socket.on('submitAnswer', async ({ roomId, userId, answer }) => {
+    socket.on('submitAnswer', async ({ roomId, answer }) => {
         try {
-            console.log('Received answer:', { roomId, userId, answer });
-
             const quizState = activeQuizzes.get(roomId);
-            if (!quizState) {
-                console.log('No quiz state found for room:', roomId);
-                return;
-            }
+            if (!quizState) return;
+
+            const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
+            const isCorrect = Number(currentQuestion.correctAnswer) === Number(answer);
+
+            // Send result back to the user immediately
+            socket.emit('answer_result', {
+                correct: isCorrect,
+                correctAnswer: Number(currentQuestion.correctAnswer),
+                points: isCorrect ? currentQuestion.points : 0
+            });
+
+            const userId = socket.userId;
 
             console.log('Current quiz state:', {
                 currentQuestionIndex: quizState.currentQuestionIndex,
                 totalQuestions: quizState.questions.length
             });
 
-            const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
-            const isCorrect = currentQuestion.correctAnswer === answer;
-            console.log('Answer check:', { isCorrect, expected: currentQuestion.correctAnswer, received: answer });
-
-            console.log(userId + "\n" + roomId);
             // Get participant first
             const participant = await prisma.roomParticipant.findUnique({
                 where: {
@@ -113,24 +139,22 @@ export function handleQuizEvents(io: Server, socket: Socket) {
                 }
             });
 
-            // Send result back to the user
-            socket.emit('answer_result', {
-                correct: isCorrect,
-                correctAnswer: currentQuestion.correctAnswer,
-                points: isCorrect ? currentQuestion.points : 0
+            // Track that this user has answered
+            quizState.answeredUserIds.add(userId);
+
+            // Check if all participants have answered
+            const participants = await prisma.roomParticipant.findMany({
+                where: { roomId },
+                select: { userId: true }
             });
 
-            // After sending result, move to next question after a delay
-            console.log('Setting timeout for next question');
-            setTimeout(() => {
-                console.log('Timeout triggered, moving to next question');
-                moveToNextQuestion(roomId);
-            }, 3000);
+            const allAnswered = participants.every(p => quizState.answeredUserIds.has(p.userId));
 
-            if (quizState.timer) {
-                clearInterval(quizState.timer);
-                quizState.timer = null;
+            if (allAnswered) {
+                // All participants have answered, move to next question
+                moveToNextQuestion(roomId);
             }
+
         } catch (error) {
             console.error('Error in submitAnswer:', error);
             socket.emit('error', { message: 'Failed to process answer' });
@@ -141,32 +165,32 @@ export function handleQuizEvents(io: Server, socket: Socket) {
         const quizState = activeQuizzes.get(roomId);
         if (!quizState) return;
 
-        // Clear existing timer if any
         if (quizState.timer) {
             clearInterval(quizState.timer);
         }
 
-        // Set start time
         const startTime = Date.now();
+        let previousTimeRemaining = timeLimit;
 
-        // Emit time updates every second
-        const intervalId = setInterval(() => {
+        const intervalId = setInterval(async () => {
             const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
             const timeRemaining = timeLimit - timeElapsed;
 
-            if (timeRemaining <= 0) {
-                clearInterval(intervalId);
-                // If time runs out, force move to next question
-                moveToNextQuestion(roomId);
-            } else {
+            if (timeRemaining !== previousTimeRemaining) {
                 io.to(roomId).emit('time_update', {
                     timeRemaining,
                     questionIndex: quizState.currentQuestionIndex
                 });
+                previousTimeRemaining = timeRemaining;
             }
-        }, 1000);
 
-        // Store timer reference
+            if (timeRemaining <= 0) {
+                clearInterval(intervalId);
+                quizState.timer = null;
+                moveToNextQuestion(roomId);
+            }
+        }, 100);
+
         quizState.timer = intervalId;
     }
 
@@ -207,4 +231,8 @@ export function handleQuizEvents(io: Server, socket: Socket) {
             }
         });
     }
+
+    socket.on('question_timeout', ({ roomId }) => {
+        moveToNextQuestion(roomId);
+    });
 }

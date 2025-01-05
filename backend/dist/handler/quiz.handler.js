@@ -24,49 +24,64 @@ function handleQuizEvents(io, socket) {
         const quizState = quizState_1.activeQuizzes.get(roomId);
         if (!quizState)
             return;
-        // Clear existing timer
+        // Clear any existing timer
         if (quizState.timer) {
             clearInterval(quizState.timer);
             quizState.timer = null;
         }
         // Show leaderboard first
         getTopScores(roomId).then(scores => {
-            io.to(roomId).emit('leaderboard_update', { scores });
-            // Wait 3 seconds before moving to next question
+            // Add a delay before showing leaderboard
             setTimeout(() => {
-                quizState.currentQuestionIndex++;
-                if (quizState.currentQuestionIndex >= quizState.questions.length) {
-                    io.to(roomId).emit('quiz_ended', {
-                        message: 'Quiz completed',
-                        totalQuestions: quizState.questions.length,
-                        finalScores: scores
-                    });
-                    quizState_1.activeQuizzes.delete(roomId);
-                    return;
+                io.to(roomId).emit('leaderboard_update', { scores });
+                // Only proceed if we haven't reached the end
+                if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
+                    setTimeout(() => {
+                        quizState.currentQuestionIndex++;
+                        quizState.answeredUserIds.clear(); // Reset the set
+                        const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
+                        io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30 }));
+                        // Start timer for next question
+                        startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
+                    }, 5000); // Show intermediate leaderboard for 5 seconds
                 }
-                const nextQuestion = quizState.questions[quizState.currentQuestionIndex];
-                io.to(roomId).emit('new_question', Object.assign(Object.assign({}, nextQuestion), { startTime: Date.now(), timeLimit: nextQuestion.timeLimit || 30 }));
-                startQuestionTimer(roomId, nextQuestion.timeLimit || 30);
-            }, 3000); // Show leaderboard for 3 seconds
+                else {
+                    // For the final question, show final leaderboard
+                    setTimeout(() => {
+                        // First, send the final scores
+                        io.to(roomId).emit('quiz_ended', {
+                            message: 'Quiz completed',
+                            totalQuestions: quizState.questions.length,
+                            finalScores: scores
+                        });
+                        // Clean up the quiz state after giving time to view the results
+                        setTimeout(() => {
+                            quizState_1.activeQuizzes.delete(roomId);
+                        }, 30000); // Keep quiz state for 30 seconds after completion
+                    }, 10000); // Show final leaderboard for 10 seconds
+                }
+            }, 2000); // 2-second delay before showing leaderboard after last answer
         });
     }
     // Modify submitAnswer to call moveToNextQuestion
-    socket.on('submitAnswer', (_a) => __awaiter(this, [_a], void 0, function* ({ roomId, userId, answer }) {
+    socket.on('submitAnswer', (_a) => __awaiter(this, [_a], void 0, function* ({ roomId, answer }) {
         try {
-            console.log('Received answer:', { roomId, userId, answer });
             const quizState = quizState_1.activeQuizzes.get(roomId);
-            if (!quizState) {
-                console.log('No quiz state found for room:', roomId);
+            if (!quizState)
                 return;
-            }
+            const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
+            const isCorrect = Number(currentQuestion.correctAnswer) === Number(answer);
+            // Send result back to the user immediately
+            socket.emit('answer_result', {
+                correct: isCorrect,
+                correctAnswer: Number(currentQuestion.correctAnswer),
+                points: isCorrect ? currentQuestion.points : 0
+            });
+            const userId = socket.userId;
             console.log('Current quiz state:', {
                 currentQuestionIndex: quizState.currentQuestionIndex,
                 totalQuestions: quizState.questions.length
             });
-            const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
-            const isCorrect = currentQuestion.correctAnswer === answer;
-            console.log('Answer check:', { isCorrect, expected: currentQuestion.correctAnswer, received: answer });
-            console.log(userId + "\n" + roomId);
             // Get participant first
             const participant = yield prisma.roomParticipant.findUnique({
                 where: {
@@ -104,21 +119,17 @@ function handleQuizEvents(io, socket) {
                     }
                 }
             });
-            // Send result back to the user
-            socket.emit('answer_result', {
-                correct: isCorrect,
-                correctAnswer: currentQuestion.correctAnswer,
-                points: isCorrect ? currentQuestion.points : 0
+            // Track that this user has answered
+            quizState.answeredUserIds.add(userId);
+            // Check if all participants have answered
+            const participants = yield prisma.roomParticipant.findMany({
+                where: { roomId },
+                select: { userId: true }
             });
-            // After sending result, move to next question after a delay
-            console.log('Setting timeout for next question');
-            setTimeout(() => {
-                console.log('Timeout triggered, moving to next question');
+            const allAnswered = participants.every(p => quizState.answeredUserIds.has(p.userId));
+            if (allAnswered) {
+                // All participants have answered, move to next question
                 moveToNextQuestion(roomId);
-            }, 3000);
-            if (quizState.timer) {
-                clearInterval(quizState.timer);
-                quizState.timer = null;
             }
         }
         catch (error) {
@@ -130,29 +141,27 @@ function handleQuizEvents(io, socket) {
         const quizState = quizState_1.activeQuizzes.get(roomId);
         if (!quizState)
             return;
-        // Clear existing timer if any
         if (quizState.timer) {
             clearInterval(quizState.timer);
         }
-        // Set start time
         const startTime = Date.now();
-        // Emit time updates every second
-        const intervalId = setInterval(() => {
+        let previousTimeRemaining = timeLimit;
+        const intervalId = setInterval(() => __awaiter(this, void 0, void 0, function* () {
             const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
             const timeRemaining = timeLimit - timeElapsed;
-            if (timeRemaining <= 0) {
-                clearInterval(intervalId);
-                // If time runs out, force move to next question
-                moveToNextQuestion(roomId);
-            }
-            else {
+            if (timeRemaining !== previousTimeRemaining) {
                 io.to(roomId).emit('time_update', {
                     timeRemaining,
                     questionIndex: quizState.currentQuestionIndex
                 });
+                previousTimeRemaining = timeRemaining;
             }
-        }, 1000);
-        // Store timer reference
+            if (timeRemaining <= 0) {
+                clearInterval(intervalId);
+                quizState.timer = null;
+                moveToNextQuestion(roomId);
+            }
+        }), 100);
         quizState.timer = intervalId;
     }
     function getTopScores(roomId_1) {
@@ -194,4 +203,7 @@ function handleQuizEvents(io, socket) {
             });
         });
     }
+    socket.on('question_timeout', ({ roomId }) => {
+        moveToNextQuestion(roomId);
+    });
 }

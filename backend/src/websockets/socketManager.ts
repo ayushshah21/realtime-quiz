@@ -1,6 +1,8 @@
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import * as http from 'http';
 import { handleQuizEvents } from '../handler/quiz.handler';
+import { verifyToken } from '../utils/auth';
+import { AuthenticatedSocket } from '../types/socket';
 
 let io: Server;
 
@@ -13,14 +15,24 @@ export function initializeSocket(server: http.Server) {
         }
     });
 
-    io.on('connection', (socket) => {
-        console.log(`User connected: ${socket.id}`);
-        handleQuizEvents(io, socket);
+    io.use((socket: Socket, next) => {
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            return next(new Error('Authentication error'));
+        }
 
-        socket.on('message', (message) => {
-            console.log("Received user message");
-            socket.emit('message', "Client just sent me this: " + message);
-        });
+        try {
+            const decoded = verifyToken(token);
+            (socket as AuthenticatedSocket).userId = decoded.userId;
+            next();
+        } catch (err) {
+            next(new Error('Authentication error'));
+        }
+    });
+
+    io.on('connection', (socket: Socket) => {
+        console.log(`User connected: ${socket.id}`);
+        handleQuizEvents(io, socket as AuthenticatedSocket);
 
         socket.on('disconnect', () => {
             console.log(`User disconnected: ${socket.id}`);
@@ -30,9 +42,9 @@ export function initializeSocket(server: http.Server) {
     return io;
 }
 
-export function getIO() {
+export function getIO(): Server {
     if (!io) {
-        throw new Error('Socket.IO not initialized');
+        throw new Error('Socket.io not initialized!');
     }
     return io;
 }

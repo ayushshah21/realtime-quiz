@@ -73,14 +73,6 @@ class RoomController {
             try {
                 const { roomId } = req.params;
                 const userId = req.userId;
-                // Reset scores for this room before starting
-                yield prisma.score.deleteMany({
-                    where: {
-                        participant: {
-                            roomId: roomId
-                        }
-                    }
-                });
                 const room = yield prisma.room.findUnique({
                     where: { id: roomId },
                     include: {
@@ -96,14 +88,36 @@ class RoomController {
                     }
                 });
                 if (!room) {
-                    return res.status(403).json({ error: "Not authorized to start this quiz" });
+                    return res.status(404).json({ error: "Room not found" });
                 }
+                // Reset scores for this room
+                yield prisma.score.deleteMany({
+                    where: {
+                        participant: {
+                            roomId: roomId
+                        }
+                    }
+                });
                 // Initialize quiz state
-                quizState_1.activeQuizzes.set(roomId, {
+                const quizState = {
                     currentQuestionIndex: 0,
                     questions: room.quiz.questions,
-                    timer: null
-                });
+                    timer: null,
+                    answeredUserIds: new Set()
+                };
+                quizState_1.activeQuizzes.set(roomId, quizState);
+                const io = (0, socketManager_1.getIO)();
+                // Check if room exists in socket
+                const sockets = yield io.in(roomId).fetchSockets();
+                if (sockets.length === 0) {
+                    return res.status(400).json({ error: "No participants connected" });
+                }
+                // Emit first question immediately
+                io.to(roomId).emit('quizStarted', { message: 'Quiz is starting' });
+                setTimeout(() => {
+                    io.to(roomId).emit('new_question', Object.assign(Object.assign({}, quizState.questions[0]), { startTime: Date.now(), timeLimit: quizState.questions[0].timeLimit || 30 }));
+                    this.startQuestionTimer(roomId, quizState.questions[0].timeLimit || 30);
+                }, 3000);
                 const updatedRoom = yield prisma.room.update({
                     where: { id: roomId },
                     data: {
@@ -111,15 +125,7 @@ class RoomController {
                         startedAt: new Date()
                     }
                 });
-                // Emit to clients only
-                const io = (0, socketManager_1.getIO)();
-                io.to(roomId).emit('quizStarted', {
-                    roomId,
-                    firstQuestion: room.quiz.questions[0]
-                });
-                // Also emit the first question
-                io.to(roomId).emit('new_question', room.quiz.questions[0]);
-                return res.status(200).json(updatedRoom);
+                return res.json(updatedRoom);
             }
             catch (error) {
                 console.error('Error starting quiz:', error);
@@ -160,6 +166,43 @@ class RoomController {
                 return res.status(500).json({ error: "Failed to fetch room details" });
             }
         });
+    }
+    startQuestionTimer(roomId, timeLimit) {
+        const quizState = quizState_1.activeQuizzes.get(roomId);
+        if (!quizState)
+            return;
+        if (quizState.timer) {
+            clearInterval(quizState.timer);
+        }
+        const startTime = Date.now();
+        let previousTimeRemaining = timeLimit;
+        const io = (0, socketManager_1.getIO)();
+        const intervalId = setInterval(() => {
+            const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+            const timeRemaining = timeLimit - timeElapsed;
+            if (timeRemaining !== previousTimeRemaining) {
+                io.to(roomId).emit('time_update', {
+                    timeRemaining,
+                    questionIndex: quizState.currentQuestionIndex
+                });
+                previousTimeRemaining = timeRemaining;
+            }
+            if (timeRemaining <= 0) {
+                clearInterval(intervalId);
+                quizState.timer = null;
+                // Only emit timeout if this is still the current question
+                if (quizState.currentQuestionIndex === quizState.questions.length - 1) {
+                    io.to(roomId).emit('quiz_ended', {
+                        message: 'Quiz completed',
+                        totalQuestions: quizState.questions.length
+                    });
+                }
+                else {
+                    io.to(roomId).emit('question_timeout', { roomId });
+                }
+            }
+        }, 100);
+        quizState.timer = intervalId;
     }
 }
 exports.default = RoomController;

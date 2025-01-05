@@ -4,9 +4,10 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv'
 import { createRoom, validRoomCode, joinRoom } from '../services/room.service';
 import { PrismaClient } from '@prisma/client';
-import { ActiveQuizState, QuizQuestion } from '../types/types';
+import { ActiveQuizState } from '../state/quizState';
 import { activeQuizzes } from '../state/quizState';
 import { getIO } from '../websockets/socketManager';
+import { Server } from 'socket.io';
 
 const prisma = new PrismaClient();
 
@@ -71,19 +72,52 @@ export default class RoomController {
         }
     }
 
+    private startQuestionTimer(roomId: string, timeLimit: number) {
+        const quizState = activeQuizzes.get(roomId);
+        if (!quizState) return;
+
+        if (quizState.timer) {
+            clearInterval(quizState.timer);
+        }
+
+        const startTime = Date.now();
+        let previousTimeRemaining = timeLimit;
+        const io = getIO();
+
+        const intervalId = setInterval(() => {
+            const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+            const timeRemaining = timeLimit - timeElapsed;
+
+            if (timeRemaining !== previousTimeRemaining) {
+                io.to(roomId).emit('time_update', {
+                    timeRemaining,
+                    questionIndex: quizState.currentQuestionIndex
+                });
+                previousTimeRemaining = timeRemaining;
+            }
+
+            if (timeRemaining <= 0) {
+                clearInterval(intervalId);
+                quizState.timer = null;
+                // Only emit timeout if this is still the current question
+                if (quizState.currentQuestionIndex === quizState.questions.length - 1) {
+                    io.to(roomId).emit('quiz_ended', {
+                        message: 'Quiz completed',
+                        totalQuestions: quizState.questions.length
+                    });
+                } else {
+                    io.to(roomId).emit('question_timeout', { roomId });
+                }
+            }
+        }, 100);
+
+        quizState.timer = intervalId;
+    }
+
     startQuiz = async (req: Request, res: Response) => {
         try {
             const { roomId } = req.params;
             const userId = (req as any).userId;
-
-            // Reset scores for this room before starting
-            await prisma.score.deleteMany({
-                where: {
-                    participant: {
-                        roomId: roomId
-                    }
-                }
-            });
 
             const room = await prisma.room.findUnique({
                 where: { id: roomId },
@@ -101,15 +135,46 @@ export default class RoomController {
             });
 
             if (!room) {
-                return res.status(403).json({ error: "Not authorized to start this quiz" });
+                return res.status(404).json({ error: "Room not found" });
             }
 
+            // Reset scores for this room
+            await prisma.score.deleteMany({
+                where: {
+                    participant: {
+                        roomId: roomId
+                    }
+                }
+            });
+
             // Initialize quiz state
-            activeQuizzes.set(roomId, {
+            const quizState: ActiveQuizState = {
                 currentQuestionIndex: 0,
                 questions: room.quiz.questions,
-                timer: null
-            });
+                timer: null,
+                answeredUserIds: new Set<string>()
+            };
+            activeQuizzes.set(roomId, quizState);
+
+            const io = getIO();
+            // Check if room exists in socket
+            const sockets = await io.in(roomId).fetchSockets();
+            if (sockets.length === 0) {
+                return res.status(400).json({ error: "No participants connected" });
+            }
+
+            // Emit first question immediately
+            io.to(roomId).emit('quizStarted', { message: 'Quiz is starting' });
+
+            setTimeout(() => {
+                io.to(roomId).emit('new_question', {
+                    ...quizState.questions[0],
+                    startTime: Date.now(),
+                    timeLimit: quizState.questions[0].timeLimit || 30
+                });
+
+                this.startQuestionTimer(roomId, quizState.questions[0].timeLimit || 30);
+            }, 3000);
 
             const updatedRoom = await prisma.room.update({
                 where: { id: roomId },
@@ -119,22 +184,12 @@ export default class RoomController {
                 }
             });
 
-            // Emit to clients only
-            const io = getIO();
-            io.to(roomId).emit('quizStarted', {
-                roomId,
-                firstQuestion: room.quiz.questions[0]
-            });
-
-            // Also emit the first question
-            io.to(roomId).emit('new_question', room.quiz.questions[0]);
-
-            return res.status(200).json(updatedRoom);
+            return res.json(updatedRoom);
         } catch (error) {
             console.error('Error starting quiz:', error);
             return res.status(500).json({ error: "Failed to start quiz" });
         }
-    }
+    };
 
     getRoomDetails = async (req: Request, res: Response) => {
         try {

@@ -1,3 +1,5 @@
+import { Question } from "@prisma/client";
+
 // Define the interface for creating a new question
 export interface CreateQuestionInput {
     text: string;
@@ -15,7 +17,7 @@ export interface CreateQuizInput {
     creatorId: string;
 }
 
-export interface createRoomInput{
+export interface createRoomInput {
     name: string;
     quizId: string;
     creatorId: string;
@@ -34,6 +36,7 @@ export interface QuizQuestion {
 
 export interface ActiveQuizState {
     currentQuestionIndex: number;
-    questions: QuizQuestion[];
+    questions: Question[];
     timer: NodeJS.Timeout | null;
+    answeredUserIds: Set<string>;
 }
