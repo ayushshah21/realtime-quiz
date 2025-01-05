@@ -1,33 +1,30 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, Users, Play } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
 import { useWebSocket } from "../hooks/useWebSocket";
-
-interface Participant {
-  id: string;
-  user: {
-    email: string;
-  };
-}
 
 interface Room {
   id: string;
   name: string;
   code: string;
   status: "WAITING" | "IN_PROGRESS" | "COMPLETED";
-  participants: Participant[];
+  participants: {
+    id: string;
+    user: {
+      email: string;
+    };
+  }[];
   quiz: {
     title: string;
   };
 }
 
-export default function HostRoom() {
+export default function ParticipantRoom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState("");
-  const [isStarting, setIsStarting] = useState(false);
   const socket = useWebSocket(roomId || "");
 
   useEffect(() => {
@@ -41,7 +38,6 @@ export default function HostRoom() {
             },
           }
         );
-        console.log(response);
         setRoom(response.data);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
@@ -56,34 +52,22 @@ export default function HostRoom() {
   useEffect(() => {
     if (!socket) return;
 
+    console.log("Setting up socket listeners");
+
     socket.on("participantJoined", (updatedRoom) => {
+      console.log("Participant joined event received:", updatedRoom);
       setRoom(updatedRoom);
+    });
+
+    socket.on("quizStarted", () => {
+      console.log("Quiz started event received");
     });
 
     return () => {
       socket.off("participantJoined");
+      socket.off("quizStarted");
     };
   }, [socket]);
-
-  const handleStartQuiz = async () => {
-    setIsStarting(true);
-    try {
-      await axios.post(
-        `http://localhost:4000/api/rooms/${roomId}/start`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      // Will handle navigation to quiz page later
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to start quiz");
-      setIsStarting(false);
-    }
-  };
 
   if (error) {
     return (
@@ -120,8 +104,7 @@ export default function HostRoom() {
                   {room.quiz.title}
                 </h1>
                 <div className="bg-gray-100 px-4 py-2 rounded-lg">
-                  Room Code:{" "}
-                  <span className="font-mono font-bold">{room.code}</span>
+                  Status: <span className="font-semibold">{room.status}</span>
                 </div>
               </div>
 
@@ -139,24 +122,14 @@ export default function HostRoom() {
                       {participant.user.email}
                     </div>
                   ))}
-                  {room.participants.length === 0 && (
-                    <p className="text-gray-500 text-center py-4">
-                      Waiting for participants to join...
-                    </p>
-                  )}
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleStartQuiz}
-                  disabled={isStarting || room.participants.length === 0}
-                  className="flex items-center px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  {isStarting ? "Starting..." : "Start Quiz"}
-                </button>
-              </div>
+              {room.status === "WAITING" && (
+                <div className="text-center text-gray-600">
+                  Waiting for host to start the quiz...
+                </div>
+              )}
             </>
           )}
         </div>

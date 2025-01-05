@@ -25,8 +25,8 @@ export default function JoinRoom() {
         }
       );
       console.log(response);
-      navigate(`/room/${response.data.id}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      navigate(`/participant-room/${response.data.roomId}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to join room");
     } finally {

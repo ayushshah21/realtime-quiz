@@ -7,6 +7,7 @@ import CreateQuiz from "./pages/CreateQuiz";
 import ProtectedRoute from "./components/ProtectedRoute";
 import JoinRoom from "./pages/JoinRoom";
 import HostRoom from "./pages/HostRoom";
+import ParticipantRoom from "./pages/ParticipantRoom";
 
 function App() {
   return (
@@ -44,6 +45,14 @@ function App() {
           element={
             <ProtectedRoute>
               <HostRoom />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/participant-room/:roomId"
+          element={
+            <ProtectedRoute>
+              <ParticipantRoom />
             </ProtectedRoute>
           }
         />
