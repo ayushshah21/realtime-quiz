@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ArrowLeft, Users, Play } from "lucide-react";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { ActiveQuizHost } from "../components/quiz/ActiveQuizHost";
 
 interface Participant {
   id: string;
@@ -41,16 +43,13 @@ export default function HostRoom() {
             },
           }
         );
-        console.log(response);
         setRoom(response.data);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         setError(err.response?.data?.error || "Failed to fetch room details");
       }
     };
 
     fetchRoom();
-    // Add WebSocket connection here later
   }, [roomId]);
 
   useEffect(() => {
@@ -60,10 +59,17 @@ export default function HostRoom() {
       setRoom(updatedRoom);
     });
 
+    socket.on("quizStarted", () => {
+      if (room) {
+        setRoom({ ...room, status: "IN_PROGRESS" });
+      }
+    });
+
     return () => {
       socket.off("participantJoined");
+      socket.off("quizStarted");
     };
-  }, [socket]);
+  }, [socket, room]);
 
   const handleStartQuiz = async () => {
     setIsStarting(true);
@@ -77,11 +83,15 @@ export default function HostRoom() {
           },
         }
       );
-      // Will handle navigation to quiz page later
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to start quiz");
       setIsStarting(false);
+    }
+  };
+
+  const handleQuizEnd = () => {
+    if (room) {
+      setRoom({ ...room, status: "COMPLETED" });
     }
   };
 
@@ -93,6 +103,26 @@ export default function HostRoom() {
           <button
             onClick={() => navigate("/dashboard")}
             className="mt-4 text-blue-500 hover:text-blue-700"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (room?.status === "IN_PROGRESS") {
+    return <ActiveQuizHost socket={socket} onQuizEnd={handleQuizEnd} />;
+  }
+
+  if (room?.status === "COMPLETED") {
+    return (
+      <div className="min-h-screen bg-gray-100 p-6">
+        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
+          <h2 className="text-2xl font-bold mb-4">Quiz Completed</h2>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="text-blue-500 hover:text-blue-700"
           >
             Return to Dashboard
           </button>
