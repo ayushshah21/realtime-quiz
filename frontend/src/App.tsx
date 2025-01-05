@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CreateQuiz from "./pages/CreateQuiz";
 import ProtectedRoute from "./components/ProtectedRoute";
+import JoinRoom from "./pages/JoinRoom";
 
 function App() {
   return (
@@ -26,6 +27,14 @@ function App() {
           element={
             <ProtectedRoute>
               <CreateQuiz />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/join-room"
+          element={
+            <ProtectedRoute>
+              <JoinRoom />
             </ProtectedRoute>
           }
         />
